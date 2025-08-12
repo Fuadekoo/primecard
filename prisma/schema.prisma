@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model user {
+  id       String @id @default(cuid())
+  username String
+  password String
+  role     String @default("user")
+}
+
+model businessCard {
+  id        String   @id @default(cuid())
+  guestId   String   @unique
+  location  String
+  totalScan Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model todo {
+  id        String   @id @default(cuid())
+  title     String
+  note      String
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

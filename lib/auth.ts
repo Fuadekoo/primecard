@@ -54,12 +54,14 @@ const authConfig = {
   providers: [
     Credentials({
       async authorize(credentials) {
-        const { phone, password } = await loginSchema.parseAsync(credentials);
+        const { username, password } = await loginSchema.parseAsync(
+          credentials
+        );
         const user = await prisma.user.findFirst({
-          where: { phone },
+          where: { username },
           select: { id: true, role: true, password: true },
         });
-        if (!user) throw new CustomError("Invalid Phone Number");
+        if (!user) throw new CustomError("Invalid Username");
         if (!user.password) throw new CustomError("Password Not Set");
         if (!(await bcryptjs.compare(password, user.password)))
           throw new CustomError("Invalid Password");

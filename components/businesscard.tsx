@@ -11,6 +11,9 @@ import Website from "../public/web.png";
 import scan from "../public/scan2.png";
 import Qrcode from "../public/qrcode.png";
 import Link from "next/link";
+import { updateCard, createCard } from "../actions/guest/scan";
+import useAction from "@/hooks/useActions";
+import { addToast } from "@heroui/react";
 
 function BusinessCard() {
   return (

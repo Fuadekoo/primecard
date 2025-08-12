@@ -19,7 +19,7 @@ const setCookie = (name: string, value: string, days = 365) => {
   )}; expires=${expires}; path=/`;
 };
 
-const COOKIE_NAME = "guest_session_id";
+const COOKIE_NAME = "prime_rent_guest_id";
 
 const useGuestSession = (): string => {
   const [guestId, setGuestId] = useState<string>("");
