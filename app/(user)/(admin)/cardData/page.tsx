@@ -1,9 +1,11 @@
+"use client";
 import React from "react";
+import AllData from "../dashboard/allData";
 
 function Page() {
   return (
     <div>
-      <h1>this is a admin dashboard page</h1>
+      <AllData />
     </div>
   );
 }

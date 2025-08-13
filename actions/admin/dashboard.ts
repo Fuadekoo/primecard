@@ -2,6 +2,25 @@
 import prisma from "@/lib/db";
 import { z } from "zod";
 
+export async function getYear() {
+  try {
+    const years = await prisma.businessCard.findMany({
+      select: {
+        createdAt: true,
+      },
+    });
+
+    const uniqueYears = Array.from(
+      new Set(years.map((item) => item.createdAt.getFullYear()))
+    ).sort((a, b) => a - b);
+
+    return { data: uniqueYears };
+  } catch (error) {
+    console.error("Error fetching years:", error);
+    return { error: "Failed to fetch years." };
+  }
+}
+
 export async function dashboardCard() {
   try {
     const totalCards = await prisma.businessCard.count();
@@ -24,7 +43,52 @@ export async function dashboardCard() {
   }
 }
 
-export async function dashboardGraph() {}
+export async function dashboardGraph(year: number) {
+  try {
+    // Fetch all businessCard records for the selected year
+    const cardsForYear = await prisma.businessCard.findMany({
+      where: {
+        createdAt: {
+          gte: new Date(`${year}-01-01T00:00:00.000Z`),
+          lt: new Date(`${year + 1}-01-01T00:00:00.000Z`),
+        },
+      },
+      select: {
+        createdAt: true,
+      },
+    });
+
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    const monthlyData = monthNames.map((name) => ({
+      month: name,
+      total: 0,
+    }));
+
+    for (const card of cardsForYear) {
+      const monthIndex = card.createdAt.getMonth();
+      monthlyData[monthIndex].total++;
+    }
+
+    return { data: monthlyData };
+  } catch (error) {
+    console.error("Error fetching dashboard graph data:", error);
+    return { error: "Failed to fetch dashboard graph data." };
+  }
+}
 
 export async function getGuest(
   startDate?: Date,
