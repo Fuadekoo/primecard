@@ -26,7 +26,7 @@ export async function GET(req: Request) {
       first?.formattedAddress ||
       first?.city ||
       (first?.extra && "neighborhood" in first.extra
-        ? (first.extra as any).neighborhood
+        ? first.extra.neighborhood
         : undefined) ||
       `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 

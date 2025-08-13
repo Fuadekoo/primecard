@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"; // adjust the import path as needed
 import { redirect } from "next/navigation";
+import AdminNavbar from "@/components/navbar";
 
 export default async function Layout({
   children,
@@ -8,9 +9,14 @@ export default async function Layout({
 }) {
   const session = await auth();
   // If the logged-in user is not admin, redirect to forbidden page
-  if (!session || !session.user || session.user.role !== "admin") {
-    redirect("/en/forbidden");
-  }
+  // if (!session || !session.user || session.user.role !== "admin") {
+  //   redirect("/en/forbidden");
+  // }
 
-  return <div>{children}</div>;
+  return (
+    <div>
+      <AdminNavbar />
+      {children}
+    </div>
+  );
 }

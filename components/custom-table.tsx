@@ -121,7 +121,7 @@ function CustomTable({
   const coordKeys = useMemo(() => {
     const set = new Set<string>();
     for (const r of rows) {
-      const raw = String((r as any).location || "");
+      const raw = String(r.location || "");
       const p = parseLocation(raw);
       if (p) set.add(`${p.lat},${p.lng}`);
     }
@@ -344,7 +344,7 @@ function CustomTable({
 
                   // Location column: resolved name + buttons
                   if (columnKey === "location") {
-                    const raw = String((item as any).location || "");
+                    const raw = String(item.location || "");
                     const parsed = parseLocation(raw);
                     const key = parsed ? `${parsed.lat},${parsed.lng}` : "";
                     const name = parsed
@@ -393,17 +393,17 @@ function CustomTable({
                       {column && column.renderCell ? (
                         column.renderCell(item)
                       ) : columnKey === "photo" &&
-                        typeof (item as any).photo === "string" &&
-                        (item as any).photo ? (
+                        typeof item.photo === "string" &&
+                        item.photo ? (
                         <div className="relative w-16 h-16">
                           <Image
-                            src={`/api/filedata/${(item as any).photo}`}
+                            src={`/api/filedata/${item.photo}`}
                             alt={`Photo for ${item.id || item.key}`}
                             fill
                             className="object-cover rounded-md cursor-pointer"
                             onClick={() =>
                               handleImageClick(
-                                `/api/filedata/${(item as any).photo}`
+                                `/api/filedata/${(item).photo}`
                               )
                             }
                             onError={(e) => {

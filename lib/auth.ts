@@ -30,16 +30,16 @@ export class CustomError extends CredentialsSignin {
 const authConfig = {
   trustHost: true,
   pages: {
-    signIn: "/en/signin",
+    signIn: "/login",
     signOut: "/signout",
   },
   callbacks: {
     authorized: async ({ auth, request: { nextUrl } }) => {
       if (auth) {
-        if (nextUrl.pathname.startsWith("/en/signin")) {
-          return Response.redirect(new URL("/en/dashboard", nextUrl));
+        if (nextUrl.pathname.startsWith("/login")) {
+          return Response.redirect(new URL("/dashboard", nextUrl));
         } else return true;
-      } else if (nextUrl.pathname.startsWith("/en/dashboard")) {
+      } else if (nextUrl.pathname.startsWith("/dashboard")) {
         return false;
       } else return true;
     },
