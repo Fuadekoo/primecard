@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableHeader,
@@ -11,7 +11,15 @@ import {
   Calendar,
 } from "@heroui/react";
 import { parseDate } from "@internationalized/date";
-import { X, Search, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import {
+  X,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  MapPin,
+  Navigation,
+} from "lucide-react";
 import Image from "next/image";
 
 export interface ColumnDef<T> {
@@ -42,7 +50,20 @@ interface CustomTableProps {
   }) => void;
 }
 
-const PAGE_SIZES = [10, 25, 50, 100];
+const PAGE_SIZES = [1, 5, 50, 100];
+
+type LatLng = { lat: number; lng: number };
+
+function parseLocation(loc: string): (LatLng & { accuracy?: number }) | null {
+  if (!loc || loc.toLowerCase() === "unknown") return null;
+  const parts = loc.split(",").map((s) => s.trim());
+  if (parts.length < 2) return null;
+  const lat = Number(parts[0]);
+  const lng = Number(parts[1]);
+  const accuracy = parts[2] ? Number(parts[2]) : undefined;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng, accuracy };
+}
 
 function CustomTable({
   rows,
@@ -67,8 +88,10 @@ function CustomTable({
   const [localStartDate, setLocalStartDate] = useState(startDate || "");
   const [localEndDate, setLocalEndDate] = useState(endDate || "");
 
-  // For search input local state
   const [localSearch, setLocalSearch] = useState(searchValue);
+
+  // Reverse geocoded names cache
+  const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
 
   const handleApplyDateFilter = () => {
     if (onDateChange) {
@@ -94,6 +117,97 @@ function CustomTable({
     setZoomedImageUrl(null);
   };
 
+  // Unique coords from current rows for reverse geocoding
+  const coordKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const raw = String((r as any).location || "");
+      const p = parseLocation(raw);
+      if (p) set.add(`${p.lat},${p.lng}`);
+    }
+    return Array.from(set);
+  }, [rows]);
+
+  // Reverse geocode via server API (node-geocoder)
+  useEffect(() => {
+    const toFetch = coordKeys.filter((k) => !placeNames[k]);
+    if (toFetch.length === 0) return;
+
+    const controller = new AbortController();
+
+    const fetchOne = async (key: string) => {
+      const [lat, lng] = key.split(",").map(Number);
+      try {
+        const res = await fetch(`/api/reverse-geocode?lat=${lat}&lng=${lng}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error("bad status");
+        const data = await res.json();
+        const name = data?.name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        setPlaceNames((prev) => ({ ...prev, [key]: name }));
+      } catch {
+        setPlaceNames((prev) => ({
+          ...prev,
+          [key]: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+        }));
+      }
+    };
+
+    (async () => {
+      // Simple batch; could throttle if needed
+      await Promise.all(toFetch.slice(0, 24).map(fetchOne));
+    })();
+
+    return () => controller.abort();
+  }, [coordKeys, placeNames]);
+
+  // Open Google Maps to the place
+  const openGoogleMaps = (lat: number, lng: number) => {
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      `${lat},${lng}`
+    )}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  // Open Google Maps driving directions from user's location to the guest
+  const openDirections = (lat: number, lng: number) => {
+    const open = (origin?: string) => {
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+        `${lat},${lng}`
+      )}${
+        origin ? `&origin=${encodeURIComponent(origin)}` : ""
+      }&travelmode=driving`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    };
+
+    if ("geolocation" in navigator) {
+      let done = false;
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        open("My Location");
+      }, 4000);
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          open(`${pos.coords.latitude},${pos.coords.longitude}`);
+        },
+        () => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          open("My Location");
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
+      );
+    } else {
+      open("My Location");
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
       {/* Search and page size */}
@@ -105,31 +219,6 @@ function CustomTable({
             onSearch(localSearch);
           }}
         >
-          <div className="relative w-full sm:w-auto flex">
-            <button
-              type="submit"
-              className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-l-lg px-3 transition-colors"
-              aria-label="Search"
-              style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
-              disabled={isLoading}
-            >
-              <Search className="h-5 w-5" />
-            </button>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={localSearch}
-              onChange={(e) => {
-                setLocalSearch(e.target.value);
-                if (e.target.value === "") {
-                  onSearch(""); // Refresh table when input is cleared
-                }
-              }}
-              className="w-full sm:w-64 p-2 pl-3 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
-              disabled={isLoading}
-            />
-          </div>
           {enableDateFilter && (
             <button
               type="button"
@@ -235,7 +324,7 @@ function CustomTable({
                 key={column.key}
                 className="bg-gray-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                {column.label}
+                {column.key === "location" ? "Name" : column.label}
               </TableColumn>
             )}
           </TableHeader>
@@ -252,21 +341,70 @@ function CustomTable({
               >
                 {(columnKey) => {
                   const column = columns.find((col) => col.key === columnKey);
+
+                  // Location column: resolved name + buttons
+                  if (columnKey === "location") {
+                    const raw = String((item as any).location || "");
+                    const parsed = parseLocation(raw);
+                    const key = parsed ? `${parsed.lat},${parsed.lng}` : "";
+                    const name = parsed
+                      ? placeNames[key] || "Resolving..."
+                      : "-";
+
+                    return (
+                      <TableCell className="px-6 py-4 text-sm text-gray-800 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate max-w-[240px]" title={name}>
+                            {name}
+                          </span>
+                          {parsed && (
+                            <>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-300 text-xs hover:bg-gray-100"
+                                onClick={() =>
+                                  openGoogleMaps(parsed.lat, parsed.lng)
+                                }
+                                title="Open in Google Maps"
+                              >
+                                <MapPin size={14} />
+                                View on map
+                              </button>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-300 text-xs hover:bg-gray-100"
+                                onClick={() =>
+                                  openDirections(parsed.lat, parsed.lng)
+                                }
+                                title="Driving directions from my location"
+                              >
+                                <Navigation size={14} />
+                                distance from me
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    );
+                  }
+
                   return (
                     <TableCell className="px-6 py-4 text-sm text-gray-800 whitespace-nowrap">
                       {column && column.renderCell ? (
                         column.renderCell(item)
                       ) : columnKey === "photo" &&
-                        typeof item.photo === "string" &&
-                        item.photo ? (
+                        typeof (item as any).photo === "string" &&
+                        (item as any).photo ? (
                         <div className="relative w-16 h-16">
                           <Image
-                            src={`/api/filedata/${item.photo}`}
+                            src={`/api/filedata/${(item as any).photo}`}
                             alt={`Photo for ${item.id || item.key}`}
                             fill
                             className="object-cover rounded-md cursor-pointer"
                             onClick={() =>
-                              handleImageClick(`/api/filedata/${item.photo}`)
+                              handleImageClick(
+                                `/api/filedata/${(item as any).photo}`
+                              )
                             }
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;

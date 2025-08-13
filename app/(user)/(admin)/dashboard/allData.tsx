@@ -26,7 +26,7 @@ type Guest = {
 type ColumnDef = {
   key: string;
   label: string;
-  renderCell?: (item: Record<string, string>) => React.ReactNode;
+  renderCell?: (item: Record<string, string>, idx?: number) => React.ReactNode;
 };
 
 function AllData() {
@@ -128,7 +128,14 @@ function AllData() {
   };
 
   const columns: ColumnDef[] = [
-    { key: "id", label: "ID" },
+    {
+      key: "autoId",
+      label: "#",
+      renderCell: (item) => {
+        const idx = rows.findIndex((r) => r.id === item.id);
+        return idx !== -1 ? (page - 1) * pageSize + idx + 1 : item.id;
+      },
+    },
     {
       key: "guestId",
       label: "Guest ID",
@@ -138,6 +145,7 @@ function AllData() {
             {item.guestId}
           </span>
           <button
+            type="button"
             onClick={() => handleCopy(item.guestId, "Guest ID")}
             className="p-1 rounded hover:bg-black/5"
             title="Copy Guest ID"
@@ -147,7 +155,7 @@ function AllData() {
         </div>
       ),
     },
-    { key: "location", label: "Location" },
+    { key: "location", label: "Location Name" },
     {
       key: "totalScan",
       label: "Total Scan",
@@ -173,7 +181,7 @@ function AllData() {
             }}
             startContent={<Eye size={16} />}
           >
-            View on map
+            Details
           </Button>
         </div>
       ),
